@@ -32,5 +32,20 @@ services:
     ports:
       - "8080:8080"
 
+  frontend:
+    build:
+      context: src/frontend
+      dockerfile: Dockerfile
+      args:
+        # O navegador do usuário chama a API pela porta publicada no host, não pelo
+        # nome de serviço interno do Docker ("api") — por isso localhost, não http://api:8080.
+        VITE_API_URL: http://localhost:8080
+    container_name: onibusexpress-frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "3000:80"
+
 volumes:
   onibusexpress-db-data:
