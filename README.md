@@ -20,6 +20,7 @@ O backend permite consultar rotas e viagens disponíveis, e criar, consultar e c
 - [Migrações do banco de dados](#migrações-do-banco-de-dados)
 - [Decisões de projeto (backend)](#decisões-de-projeto-backend)
 - [Frontend](#frontend)
+- [Teste de Funcionamento](#teste-de-funcionamento)
 - [Pontos de evolução do sistema](#pontos-de-evolução-do-sistema)
 
 ---
@@ -380,6 +381,7 @@ Aplicação **React 18 + TypeScript** que implementa as 4 telas do fluxo de comp
 - [Variáveis de ambiente](#variáveis-de-ambiente)
 - [Testes automatizados (frontend)](#testes-automatizados-frontend)
 - [Limitações conhecidas](#limitações-conhecidas)
+- [Teste de Funcionamento](#teste-de-funcionamento)
 - [Pontos de evolução do sistema](#pontos-de-evolução-do-sistema)
 
 ## Tecnologias e por quê
@@ -501,6 +503,39 @@ npm run test:watch  # modo watch para desenvolvimento
 
 - Não há paginação na busca de viagens (a API atual também não pagina `GET /viagens`).
 - O mapa de assentos é um grid simples (sem representar corredor/fileiras físicas do ônibus) — suficiente para o requisito de "livre/ocupado/selecionado", mas não é um layout realista de ônibus.
+
+---
+
+## Teste de Funcionamento
+
+Roteiro rápido para confirmar, de ponta a ponta, que backend e frontend estão de fato se comunicando — seja subindo tudo via Docker Compose, seja rodando cada lado separadamente pelo terminal (os dois cenários descritos em [Como executar](#como-executar) e [Como executar](#como-executar-1)).
+Também pode ver via vídeo, disponivel na pasta teste-de-funcionamento
+
+### 1. Confirmar que a API responde
+
+```bash
+curl http://localhost:5083/rotas   # backend local (dotnet run)
+curl http://localhost:8080/rotas   # backend via Docker Compose
+```
+
+Deve retornar `200 OK` com uma lista de rotas em JSON. O seed inicial (`DbInitializer`) popula, além de algumas rotas de exemplo entre cidades, uma viagem por dia para **todas as combinações entre os 26 estados brasileiros ao longo de agosto/2026** — então qualquer busca por dois estados diferentes numa data dentro desse período já retorna resultado, sem precisar cadastrar nada manualmente.
+
+Se essa chamada falhar ou travar, o problema é de porta/URL antes mesmo de envolver o frontend — revise `VITE_API_URL` (ver [Variáveis de ambiente](#variáveis-de-ambiente)) contra a porta em que a API está realmente escutando.
+
+### 2. Validar o fluxo completo pelo navegador
+
+Acesse o frontend (`http://localhost:5173` local, ou `http://localhost:3000` via Docker) e percorra as 4 telas:
+
+1. **Busca**: informe dois estados diferentes (ex.: origem `Acre`, destino `Alagoas`) e uma data entre 16 e 31/08/2026 → a viagem deve aparecer na lista.
+2. **Seleção de assento**: clique na viagem, escolha um assento livre → o botão "Continuar" habilita.
+3. **Checkout**: preencha nome, um CPF válido (ex.: `529.982.247-25`), e-mail e data de nascimento → confirme → a tela deve exibir o **código da reserva** (`ABC-12345`).
+4. **Consulta/cancelamento**: cole o código gerado na tela de consulta → deve mostrar os detalhes da reserva; clique em "Cancelar reserva" → o status deve mudar para cancelada.
+
+Um erro de rede em qualquer um desses passos (CORS, `ERR_CONNECTION_REFUSED`, `net::ERR_CERT_*`) aparece no DevTools do navegador (aba *Network*/*Console*) e quase sempre aponta para o mesmo problema do passo 1: `VITE_API_URL` não bate com a porta/protocolo em que a API está de fato rodando.
+
+### 3. (Opcional) Repetir via Swagger/curl, sem o frontend
+
+Os mesmos 6 passos do fluxo (rotas → viagens → detalhes → criar reserva → consultar → cancelar) podem ser reproduzidos direto contra a API, com `curl` ou pelo Swagger UI — ver [Guia de uso da API — passo a passo](#guia-de-uso-da-api--passo-a-passo). Útil para isolar se um problema é do backend ou da integração com o frontend.
 
 ---
 

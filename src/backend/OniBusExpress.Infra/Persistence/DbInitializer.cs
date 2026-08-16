@@ -50,13 +50,13 @@ public static class DbInitializer
     }
 
     /// <summary>
-    /// Popula uma viagem por dia, em agosto, para cada combinação origem/destino entre os 26 estados
-    /// brasileiros (650 pares ordenados x 31 dias = 20.150 viagens) — dataset amplo para sempre haver
-    /// opções de busca/agendamento. Roda só no startup real da API (via <see cref="InitializeAsync"/>);
+    /// Popula uma viagem por dia, em agosto de 2026, para cada combinação origem/destino entre os 26
+    /// estados brasileiros (650 pares ordenados x 31 dias = 20.150 viagens) — dataset amplo para sempre
+    /// haver opções de busca/agendamento. Roda só no startup real da API (via <see cref="InitializeAsync"/>);
     /// os testes de integração chamam <see cref="SeedAsync"/> diretamente e não pagam esse custo extra.
     /// Duração (10h), preço (R$ 150,00) e assentos (40) são valores fixos de placeholder — não há uma
-    /// base de distância real entre estados aqui. O ano usado é sempre o próximo agosto ainda não
-    /// iniciado, para que as 31 datas geradas fiquem sempre no futuro (agendáveis).
+    /// base de distância real entre estados aqui. Datas já passadas de agosto/2026 são inseridas mesmo
+    /// assim (não ficam ocultas), mas deixam de ser agendáveis (regra `TripAlreadyDepartedException`).
     /// </summary>
     public static async Task SeedStateTripsForAugustAsync(OniBusExpressDbContext dbContext)
     {
@@ -100,8 +100,7 @@ public static class DbInitializer
 
         dbContext.Routes.AddRange(newRoutes);
 
-        var now = DateTime.UtcNow;
-        var year = now.Month < 8 ? now.Year : now.Year + 1;
+        const int year = 2026;
         var daysInAugust = DateTime.DaysInMonth(year, 8);
 
         var trips = new List<Trip>(routeIdsByPair.Count * daysInAugust);
