@@ -536,11 +536,12 @@ Hoje todos os endpoints são públicos, inclusive `DELETE /reservas/{codigo}` �
 - **Paginação** em `GET /viagens` (hoje retorna a lista inteira) — necessária assim que o volume de viagens crescer.
 - **Idempotência em `POST /reservas`**: hoje, um retry de rede pode gerar duas tentativas de reserva para o mesmo assento; a constraint única no banco impede duplicidade, mas um cliente que reenvia a requisição por timeout recebe um 409 confuso em vez de a reserva original. Um `Idempotency-Key` no header resolveria isso de forma explícita.
 - **Versionamento de API** (`/v1/...` ou `Asp.Versioning`) antes de qualquer breaking change no contrato, já que o Swagger é pensado para consumo por clientes externos.
-- **CRUD de rotas e viagens**: hoje `Route`/`Trip` só existem via seed inicial (`DbInitializer`) — endpoints de escrita (protegidos por autenticação de admin, ver acima) seriam necessários para operar o sistema de verdade, sem redeploy a cada nova viagem cadastrada.
+- **Endpoints de gestão de viagens (CRUD)**: hoje `Trip`/`Route` só existem via seed inicial (`DbInitializer`) — não há nenhuma rota de escrita. Adicionaria `POST /viagens`, `PUT /viagens/{id}` e `DELETE /viagens/{id}` (protegidos por autenticação de admin, ver [Autenticação e autorização](#autenticação-e-autorização-jwt)), permitindo cadastrar, atualizar e remover viagens em produção sem depender de redeploy ou acesso direto ao banco. `DELETE` exigiria uma regra de negócio própria — por exemplo, bloquear a remoção de viagens com reservas confirmadas, ou tratar como soft-delete em vez de exclusão física, preservando o histórico de reservas já feitas.
 - **Cache** para `GET /rotas` (muda raramente) — `IMemoryCache` ou `IDistributedCache`/Redis se a API escalar horizontalmente.
 
 ### Frontend
 
 - **Tela de login** e guarda de rotas autenticadas, uma vez que o backend passe a exigir JWT — hoje o frontend não tem nenhum conceito de sessão/usuário.
+- **Área administrativa de viagens (CRUD)**: uma vez que o backend exponha os endpoints de escrita descritos acima, o frontend ganharia uma área restrita ao perfil admin para cadastrar, editar e excluir viagens — formulário de criação/edição com as mesmas validações do backend, listagem com ações de editar/excluir e confirmação antes da exclusão. Reaproveitaria a camada `services/` existente (um novo `tripsAdminService.ts` ao lado de `tripsService.ts`) e componentes já implementados, como `TripCard`.
 - **Paginação/infinite scroll** na lista de resultados da Tela 1, acompanhando a paginação do backend.
 - **Testes end-to-end** (Playwright/Cypress) cobrindo o fluxo completo pelo navegador, complementando os testes unitários/componente já existentes com Vitest + RTL.
