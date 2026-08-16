@@ -50,8 +50,6 @@ app.UseSwaggerUI(options =>
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-app.UseHttpsRedirection();
-
 app.UseCors("AllowAny");
 
 app.MapControllers();

@@ -152,7 +152,10 @@ dotnet restore
 dotnet run --project src/backend/OniBusExpress.Api
 ```
 
-Ao rodar pelo Visual Studio (F5), o navegador já abre automaticamente no Swagger UI.
+- API: http://localhost:5083
+- Swagger UI: http://localhost:5083/swagger
+
+Há um único profile em `launchSettings.json` (HTTP, sem HTTPS) — por isso a API sobe sempre na mesma URL, tanto via `dotnet run` no terminal quanto pelo Visual Studio/Rider (F5), sem certificado de desenvolvimento para configurar.
 
 A API aplica as migrations e faz o seed (rotas e viagens de exemplo) automaticamente no startup. Todos os endpoints são públicos — nenhuma chamada exige autenticação.
 
@@ -162,7 +165,7 @@ A API aplica as migrations e faz o seed (rotas e viagens de exemplo) automaticam
 
 Fluxo completo de ponta a ponta, da busca até o cancelamento de uma passagem. Os exemplos usam `curl`, mas os mesmos passos podem ser feitos direto pelo **Swagger UI** (`/swagger`) clicando em *Try it out* em cada endpoint.
 
-> Base URL usada nos exemplos: `http://localhost:8080` (Docker) — troque para `https://localhost:7285` se estiver rodando localmente pelo Visual Studio.
+> Base URL usada nos exemplos: `http://localhost:8080` (Docker) — troque para `http://localhost:5083` se estiver rodando localmente (`dotnet run` ou Visual Studio).
 
 ### 1. Consultar as rotas disponíveis
 
@@ -450,11 +453,13 @@ docker-compose up --build
 ```bash
 cd src/frontend
 npm install
-cp .env.example .env.local   # ajuste VITE_API_URL se a API não estiver em localhost:8080
+cp .env.example .env.local   # já vem com VITE_API_URL=http://localhost:5083 (API local, fora do Docker)
 npm run dev
 ```
 
-Acesse http://localhost:5173. A API precisa estar rodando (veja [Como executar](#como-executar) do backend) — o CORS já está liberado (`AllowAny`) para o dev server do Vite.
+Acesse http://localhost:5173. A API precisa estar rodando em `http://localhost:5083` (`dotnet run --project src/backend/OniBusExpress.Api`, veja [Como executar](#como-executar) do backend) — o CORS já está liberado (`AllowAny`) para o dev server do Vite.
+
+> Rodando via Docker Compose em vez de `npm run dev`? A API fica em `http://localhost:8080`, não `5083` — é por isso que o `docker-compose.yml` passa `VITE_API_URL=http://localhost:8080` como build arg do frontend (ver [Variáveis de ambiente](#variáveis-de-ambiente)). Os dois cenários (local puro vs. Docker) usam portas diferentes de propósito; o importante é que `VITE_API_URL` e a porta em que a API está de fato escutando sempre batam.
 
 ### Build de produção (sem Docker)
 
@@ -467,11 +472,11 @@ npm run preview   # serve o build localmente para conferência
 
 Todas lidas em tempo de **build** (padrão do Vite — não são variáveis de runtime do container):
 
-| Variável | Padrão | Descrição |
-|---|---|---|
-| `VITE_API_URL` | `http://localhost:8080` | URL base da API. |
+| Variável | Padrão (`.env.example` / local) | Docker Compose | Descrição |
+|---|---|---|---|
+| `VITE_API_URL` | `http://localhost:5083` | `http://localhost:8080` | URL base da API. |
 
-No Docker, `VITE_API_URL` é passada como `build arg` no `docker-compose.yml` (porque precisa apontar para a porta publicada no host, já que quem faz a chamada é o navegador do usuário, não outro container).
+No Docker, `VITE_API_URL` é passada como `build arg` no `docker-compose.yml` (porque precisa apontar para a porta publicada no host, já que quem faz a chamada é o navegador do usuário, não outro container). Fora do Docker, a API roda na porta do `launchSettings.json` (`5083`) — por isso o padrão local é diferente do padrão usado em produção/Docker.
 
 ## Testes automatizados (frontend)
 
