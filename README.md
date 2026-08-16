@@ -499,3 +499,46 @@ npm run test:watch  # modo watch para desenvolvimento
 
 - Não há paginação na busca de viagens (a API atual também não pagina `GET /viagens`).
 - O mapa de assentos é um grid simples (sem representar corredor/fileiras físicas do ônibus) — suficiente para o requisito de "livre/ocupado/selecionado", mas não é um layout realista de ônibus.
+
+---
+
+## Pontos de evolução do sistema
+
+O escopo atual atende ao desafio proposto (endpoints públicos, sem autenticação). Abaixo, uma lista do que eu consideraria para evoluir o projeto além do MVP — nada disto foi implementado, é só a análise do que faria sentido a seguir.
+
+### Autenticação e autorização (JWT)
+
+Hoje todos os endpoints são públicos, inclusive `DELETE /reservas/{codigo}` — qualquer pessoa que descubra ou adivinhe um código de reserva pode cancelá-la, já que o código é o único "segredo" envolvido. Para evoluir isso:
+
+- Autenticação via **JWT** (`Microsoft.AspNetCore.Authentication.JwtBearer`), com um endpoint de login/emissão de token e validação via `[Authorize]` nos controllers.
+- Dois perfis fariam sentido: um **cliente** (passageiro), autenticado, que só enxerga e cancela as próprias reservas; e um **operador/admin**, que gerencia rotas e viagens (hoje não há nenhum endpoint de escrita para `Route`/`Trip` — são só seed de dados).
+- Passar a associar `Booking` a um usuário autenticado (hoje a entidade só tem os dados do passageiro, sem vínculo com conta), e restringir `GET/DELETE /reservas/{codigo}` ao dono da reserva (ou a um admin).
+- Refresh token com expiração curta do access token, e o segredo/chave de assinatura vindo de configuração segura (User Secrets local / variável de ambiente em produção), nunca hardcoded.
+
+### Segurança e infraestrutura
+
+- **CORS `AllowAnyOrigin`** (`Program.cs`) é adequado para o desafio, mas em produção deveria restringir a uma allowlist de origens conhecidas (domínio do frontend).
+- **Rate limiting** (`Microsoft.AspNetCore.RateLimiting`, nativo do .NET 8) em `POST /reservas` e `DELETE /reservas/{codigo}` para mitigar abuso/força bruta de códigos de reserva.
+- **Segredos fora do `appsettings.json`**: a connection string de produção hoje vem só de variável de ambiente no `docker-compose.yml`, o que já é um bom começo — mas para um ambiente real vale um cofre de segredos (Azure Key Vault, AWS Secrets Manager, Doppler, etc.) em vez de env vars em texto puro.
+- **HTTPS** foi removido do fluxo local (ver seção de execução) para simplificar o dev — em um ambiente de produção real, o TLS ficaria a cargo de um proxy reverso/load balancer (Nginx, API Gateway) na frente da API, e não da própria aplicação.
+
+### Robustez e observabilidade
+
+- **`ExceptionHandlingMiddleware` só trata `DomainException`**: qualquer exceção não prevista (erro de infra, bug) hoje sobe crua como HTML de erro do Kestrel em vez de um `ProblemDetails` 500 consistente. Vale um `catch (Exception)` genérico de fallback, logando como erro e devolvendo um problem details "unexpected error" sem vazar detalhes internos.
+- **Logging estruturado** (Serilog ou OpenTelemetry) com sink para um destino centralizado (Seq, Application Insights, ELK) em vez de só console — hoje não dá para investigar um incidente em produção sem acesso ao container.
+- **Health checks** (`/health`, `AddHealthChecks().AddNpgSql(...)`) para o Docker/orquestrador saber quando a API está de fato pronta (o `docker-compose.yml` já tem healthcheck no `db`, mas não no `api`).
+- **Métricas e tracing** (OpenTelemetry) para medir latência por endpoint e taxa de erro, essencial antes de expor a API a tráfego real.
+
+### API e domínio
+
+- **Paginação** em `GET /viagens` (hoje retorna a lista inteira) — necessária assim que o volume de viagens crescer.
+- **Idempotência em `POST /reservas`**: hoje, um retry de rede pode gerar duas tentativas de reserva para o mesmo assento; a constraint única no banco impede duplicidade, mas um cliente que reenvia a requisição por timeout recebe um 409 confuso em vez de a reserva original. Um `Idempotency-Key` no header resolveria isso de forma explícita.
+- **Versionamento de API** (`/v1/...` ou `Asp.Versioning`) antes de qualquer breaking change no contrato, já que o Swagger é pensado para consumo por clientes externos.
+- **CRUD de rotas e viagens**: hoje `Route`/`Trip` só existem via seed inicial (`DbInitializer`) — endpoints de escrita (protegidos por autenticação de admin, ver acima) seriam necessários para operar o sistema de verdade, sem redeploy a cada nova viagem cadastrada.
+- **Cache** para `GET /rotas` (muda raramente) — `IMemoryCache` ou `IDistributedCache`/Redis se a API escalar horizontalmente.
+
+### Frontend
+
+- **Tela de login** e guarda de rotas autenticadas, uma vez que o backend passe a exigir JWT — hoje o frontend não tem nenhum conceito de sessão/usuário.
+- **Paginação/infinite scroll** na lista de resultados da Tela 1, acompanhando a paginação do backend.
+- **Testes end-to-end** (Playwright/Cypress) cobrindo o fluxo completo pelo navegador, complementando os testes unitários/componente já existentes com Vitest + RTL.
