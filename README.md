@@ -19,7 +19,8 @@ O backend permite consultar rotas e viagens disponíveis, e criar, consultar e c
 - [Testes automatizados](#testes-automatizados)
 - [Migrações do banco de dados](#migrações-do-banco-de-dados)
 - [Decisões de projeto (backend)](#decisões-de-projeto-backend)
-- [FRONTEND](#frontend)
+- [Frontend](#frontend)
+- [Pontos de evolução do sistema](#pontos-de-evolução-do-sistema)
 
 ---
 
@@ -379,6 +380,7 @@ Aplicação **React 18 + TypeScript** que implementa as 4 telas do fluxo de comp
 - [Variáveis de ambiente](#variáveis-de-ambiente)
 - [Testes automatizados (frontend)](#testes-automatizados-frontend)
 - [Limitações conhecidas](#limitações-conhecidas)
+- [Pontos de evolução do sistema](#pontos-de-evolução-do-sistema)
 
 ## Tecnologias e por quê
 
